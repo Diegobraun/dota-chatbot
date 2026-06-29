@@ -16,7 +16,7 @@ public class DotaResource {
     DotaAssistant dotaAssistant;
 
     @POST
-    public String chat (String userMessage){
+    public String chat(String userMessage){
         return dotaAssistant.chat(userMessage);
     }
 }
