@@ -1,22 +1,42 @@
 package com.diegobraun;
 
-import jakarta.inject.Inject;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Path("dota")
-@Consumes(MediaType.TEXT_PLAIN)
-@Produces(MediaType.TEXT_PLAIN)
+@RestController
+@RequestMapping("/dota")
+@Tag(name = "Dota 2 Chatbot", description = "Assistente de IA especializado em Dota 2")
 public class DotaResource {
 
-    @Inject
-    DotaAssistant dotaAssistant;
+    private final DotaAssistant dotaAssistant;
 
-    @POST
-    public String chat(String userMessage){
+    public DotaResource(DotaAssistant dotaAssistant) {
+        this.dotaAssistant = dotaAssistant;
+    }
+
+    @PostMapping(consumes = MediaType.TEXT_PLAIN_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
+    @Operation(
+            summary = "Enviar mensagem ao chatbot",
+            description = "Envia uma pergunta sobre Dota 2 e recebe uma resposta gerada pelo modelo de linguagem com suporte a RAG.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Pergunta do usuário sobre Dota 2",
+                    required = true,
+                    content = @Content(mediaType = MediaType.TEXT_PLAIN_VALUE, schema = @Schema(example = "Quais são as habilidades do Axe?"))
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Resposta do assistente",
+                            content = @Content(mediaType = MediaType.TEXT_PLAIN_VALUE, schema = @Schema(example = "Axe possui as habilidades: Berserker's Call, Battle Hunger, Counter Helix e Culling Blade.")))
+            }
+    )
+    public String chat(@RequestBody String userMessage) {
         return dotaAssistant.chat(userMessage);
     }
 }
