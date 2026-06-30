@@ -1,4 +1,4 @@
-#Maven
+# Maven
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -36,13 +36,20 @@ nb-configuration.xml
 *.orig
 *.rej
 
+# Logs
+*.log
+
 # Local environment
 .env
 
-# RAG vector store cache
+# Claude Code local settings
+.claude/
+
+# RAG vector store cache (gerado em runtime)
 rag-cache.json
 
-# Plugin directory
-/.quarkus/cli/plugins/
+# Diretórios de dados locais
+easy-rag-catalog/
+
 # TLS Certificates
 .certs/
