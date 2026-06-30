@@ -41,6 +41,59 @@ curl -X POST http://localhost:8080/dota \
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - OpenAPI spec: `http://localhost:8080/api-docs`
 
+## Arquitetura
+
+```mermaid
+flowchart TD
+    User(["👤 Cliente\nPOST /dota\ntext/plain"])
+
+    subgraph App["🌱 Spring Boot App"]
+        Controller["DotaResource\n@RestController"]
+        Assistant["DotaAssistant\n@Service"]
+
+        subgraph ChatPipeline["ChatClient Pipeline"]
+            SystemPrompt["System Prompt\nEscopo: somente Dota 2\nIdioma: Português"]
+            Advisor["QuestionAnswerAdvisor\nRAG · injeta contexto\nantes do LLM"]
+        end
+
+        subgraph RAGSetup["RagConfig  (inicialização)"]
+            CacheCheck{"rag-cache.json\nexiste?"}
+            LoadCache["Carrega VectorStore\ndo cache"]
+            ReadDocs["Lê documentos\nclasspath:rag/*.json"]
+            Split["TokenTextSplitter\nDivide em chunks"]
+            SaveCache["Salva VectorStore\nem rag-cache.json"]
+        end
+
+        VectorStore[("SimpleVectorStore\n(in-memory)")]
+    end
+
+    subgraph Ollama["🦙 Ollama  :11434"]
+        EmbedModel["nomic-embed-text\nEmbedding"]
+        ChatModel["llama3.2:latest\nChat LLM"]
+    end
+
+    %% Fluxo de requisição
+    User -->|pergunta| Controller
+    Controller --> Assistant
+    SystemPrompt --> Advisor
+    Assistant --> Advisor
+    Advisor -->|busca vetorial| VectorStore
+    VectorStore -->|chunks relevantes| Advisor
+    Advisor -->|pergunta + contexto| ChatModel
+    ChatModel -->|resposta| Assistant
+    Assistant -->|resposta| Controller
+    Controller -->|text/plain| User
+
+    %% Fluxo de inicialização RAG
+    CacheCheck -->|"sim (2ª execução+)"| LoadCache
+    CacheCheck -->|"não (1ª execução)"| ReadDocs
+    ReadDocs --> Split
+    Split -->|chunks| EmbedModel
+    EmbedModel -->|vetores float| VectorStore
+    VectorStore --> SaveCache
+    LoadCache --> VectorStore
+```
+
 ## Como funciona o RAG
 
 Na primeira inicialização, a aplicação lê os documentos em `src/main/resources/rag/`, gera embeddings via Ollama (`nomic-embed-text`) e salva o índice vetorial em `rag-cache.json` na raiz do projeto. Nas execuções seguintes, o cache é reutilizado, evitando o custo de reindexação.
