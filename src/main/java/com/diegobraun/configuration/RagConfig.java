@@ -68,9 +68,9 @@ public class RagConfig {
             segments.addAll(splitter.split(Document.from(content)));
         }
 
-        if (!segments.isEmpty()) {
-            List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
-            embeddingStore.addAll(embeddings, segments);
+        for (TextSegment segment : segments) {
+            Embedding embedding = embeddingModel.embed(segment).content();
+            embeddingStore.add(embedding, segment);
         }
     }
 }
