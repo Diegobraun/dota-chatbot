@@ -1,12 +1,16 @@
 package com.diegobraun.configuration;
 
+import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentSplitter;
+import dev.langchain4j.data.document.splitter.DocumentSplitters;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
+import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.transformer.splitter.TokenTextSplitter;
-import org.springframework.ai.vectorstore.SimpleVectorStore;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +20,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,37 +33,44 @@ public class RagConfig {
     private String cachePath;
 
     @Bean
-    public VectorStore vectorStore(EmbeddingModel embeddingModel) throws IOException {
-        var vectorStore = SimpleVectorStore.builder(embeddingModel).build();
-        var cacheFile = new File(cachePath);
+    public ContentRetriever contentRetriever(EmbeddingModel embeddingModel) throws IOException {
+        InMemoryEmbeddingStore<TextSegment> embeddingStore;
+        File cacheFile = new File(cachePath);
 
         if (cacheFile.exists()) {
             log.info("Carregando vector store do cache: {}", cacheFile.getAbsolutePath());
-            vectorStore.load(cacheFile);
+            String json = Files.readString(cacheFile.toPath());
+            embeddingStore = InMemoryEmbeddingStore.fromJson(json);
         } else {
             log.info("Cache nao encontrado, indexando documentos RAG...");
-            indexDocuments(vectorStore);
-            vectorStore.save(cacheFile);
+            embeddingStore = new InMemoryEmbeddingStore<>();
+            indexDocuments(embeddingStore, embeddingModel);
+            Files.writeString(cacheFile.toPath(), embeddingStore.serializeToJson());
             log.info("Vector store salvo em: {}", cacheFile.getAbsolutePath());
         }
 
-        return vectorStore;
+        return EmbeddingStoreContentRetriever.builder()
+                .embeddingStore(embeddingStore)
+                .embeddingModel(embeddingModel)
+                .maxResults(5)
+                .build();
     }
 
-    private void indexDocuments(SimpleVectorStore vectorStore) throws IOException {
+    private void indexDocuments(InMemoryEmbeddingStore<TextSegment> embeddingStore, EmbeddingModel embeddingModel) throws IOException {
         var resolver = new PathMatchingResourcePatternResolver();
         Resource[] resources = resolver.getResources("classpath:rag/*");
 
-        var splitter = new TokenTextSplitter();
-        List<Document> docs = new ArrayList<>();
+        DocumentSplitter splitter = DocumentSplitters.recursive(512, 0);
+        List<TextSegment> segments = new ArrayList<>();
 
         for (Resource resource : resources) {
             String content = resource.getContentAsString(StandardCharsets.UTF_8);
-            docs.addAll(splitter.apply(List.of(new Document(content))));
+            segments.addAll(splitter.split(Document.from(content)));
         }
 
-        if (!docs.isEmpty()) {
-            vectorStore.add(docs);
+        if (!segments.isEmpty()) {
+            List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
+            embeddingStore.addAll(embeddings, segments);
         }
     }
 }
