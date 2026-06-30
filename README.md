@@ -1,6 +1,6 @@
 # dota-chatbot
 
-Chatbot de IA especializado em Dota 2, construído com **Spring Boot 3.5.3** e **Spring AI 1.0.0**, utilizando um modelo local via **Ollama** e RAG (Retrieval-Augmented Generation) para responder perguntas sobre heróis, habilidades e o universo do jogo.
+Chatbot de IA especializado em Dota 2, construído com **Spring Boot 3.5.3** e **LangChain4j 1.0.0-beta3**, utilizando um modelo local via **Ollama** e RAG (Retrieval-Augmented Generation) para responder perguntas sobre heróis, habilidades e o universo do jogo.
 
 ## Pré-requisitos
 
@@ -49,22 +49,22 @@ flowchart TD
 
     subgraph App["🌱 Spring Boot App"]
         Controller["DotaResource\n@RestController"]
-        Assistant["DotaAssistant\n@Service"]
+        Assistant["DotaAssistant\n@AiService interface"]
 
-        subgraph ChatPipeline["ChatClient Pipeline"]
-            SystemPrompt["System Prompt\nEscopo: somente Dota 2\nIdioma: Português"]
-            Advisor["QuestionAnswerAdvisor\nRAG · injeta contexto\nantes do LLM"]
+        subgraph ChatPipeline["LangChain4j Pipeline"]
+            SystemPrompt["@SystemMessage\nEscopo: somente Dota 2\nIdioma: Português"]
+            Retriever["ContentRetriever\nRAG · injeta contexto\nantes do LLM"]
         end
 
         subgraph RAGSetup["RagConfig  (inicialização)"]
             CacheCheck{"rag-cache.json\nexiste?"}
-            LoadCache["Carrega VectorStore\ndo cache"]
+            LoadCache["Carrega EmbeddingStore\ndo cache JSON"]
             ReadDocs["Lê documentos\nclasspath:rag/*.json"]
-            Split["TokenTextSplitter\nDivide em chunks"]
-            SaveCache["Salva VectorStore\nem rag-cache.json"]
+            Split["DocumentSplitters.recursive\nDivide em chunks de 512 chars"]
+            SaveCache["Serializa EmbeddingStore\nem rag-cache.json"]
         end
 
-        VectorStore[("SimpleVectorStore\n(in-memory)")]
+        VectorStore[("InMemoryEmbeddingStore\n(in-memory)")]
     end
 
     subgraph Ollama["🦙 Ollama  :11434"]
@@ -75,11 +75,11 @@ flowchart TD
     %% Fluxo de requisição
     User -->|pergunta| Controller
     Controller --> Assistant
-    SystemPrompt --> Advisor
-    Assistant --> Advisor
-    Advisor -->|busca vetorial| VectorStore
-    VectorStore -->|chunks relevantes| Advisor
-    Advisor -->|pergunta + contexto| ChatModel
+    SystemPrompt --> Retriever
+    Assistant --> Retriever
+    Retriever -->|busca vetorial| VectorStore
+    VectorStore -->|chunks relevantes| Retriever
+    Retriever -->|pergunta + contexto| ChatModel
     ChatModel -->|resposta| Assistant
     Assistant -->|resposta| Controller
     Controller -->|text/plain| User
@@ -88,7 +88,7 @@ flowchart TD
     CacheCheck -->|"sim (2ª execução+)"| LoadCache
     CacheCheck -->|"não (1ª execução)"| ReadDocs
     ReadDocs --> Split
-    Split -->|chunks| EmbedModel
+    Split -->|chunks individuais| EmbedModel
     EmbedModel -->|vetores float| VectorStore
     VectorStore --> SaveCache
     LoadCache --> VectorStore
@@ -96,7 +96,7 @@ flowchart TD
 
 ## Como funciona o RAG
 
-Na primeira inicialização, a aplicação lê os documentos em `src/main/resources/rag/`, gera embeddings via Ollama (`nomic-embed-text`) e salva o índice vetorial em `rag-cache.json` na raiz do projeto. Nas execuções seguintes, o cache é reutilizado, evitando o custo de reindexação.
+Na primeira inicialização, a aplicação lê os documentos em `src/main/resources/rag/`, gera embeddings via Ollama (`nomic-embed-text`) — um segmento por vez — e salva o índice vetorial em `rag-cache.json` na raiz do projeto. Nas execuções seguintes, o cache é reutilizado, evitando o custo de reindexação.
 
 Para forçar a reindexação, basta deletar o arquivo `rag-cache.json`.
 
@@ -121,7 +121,8 @@ As propriedades estão em `src/main/resources/application.properties`:
 
 | Propriedade | Padrão | Descrição |
 |-------------|--------|-----------|
-| `spring.ai.ollama.base-url` | `http://localhost:11434` | URL do Ollama |
-| `spring.ai.ollama.chat.options.model` | `llama3.2:latest` | Modelo de chat |
-| `spring.ai.ollama.embedding.options.model` | `nomic-embed-text` | Modelo de embedding |
+| `langchain4j.ollama.chat-model.base-url` | `http://localhost:11434` | URL do Ollama (chat) |
+| `langchain4j.ollama.chat-model.model-name` | `llama3.2:latest` | Modelo de chat |
+| `langchain4j.ollama.embedding-model.base-url` | `http://localhost:11434` | URL do Ollama (embedding) |
+| `langchain4j.ollama.embedding-model.model-name` | `nomic-embed-text` | Modelo de embedding |
 | `app.rag.cache-path` | `./rag-cache.json` | Caminho do cache vetorial |
