@@ -1,93 +1,74 @@
 # dota-chatbot
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Chatbot de IA especializado em Dota 2, construído com **Spring Boot 3.5.3** e **Spring AI 1.0.0**, utilizando um modelo local via **Ollama** e RAG (Retrieval-Augmented Generation) para responder perguntas sobre heróis, habilidades e o universo do jogo.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Pré-requisitos
 
-## Running the application in dev mode
+- Java 21+
+- [Ollama](https://ollama.com/) instalado e rodando localmente
 
-You can run your application in dev mode that enables live coding using:
+### Modelos necessários
 
-```shell script
-./mvnw quarkus:dev
+```bash
+ollama pull llama3.2:latest
+ollama pull nomic-embed-text
+ollama serve
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+## Executando a aplicação
 
-## Packaging and running the application
+```bash
+./mvnw spring-boot:run
+```
 
-The application can be packaged using:
+A aplicação sobe em `http://localhost:8080`.
 
-```shell script
+## Endpoints
+
+| Método | Path | Content-Type | Descrição |
+|--------|------|-------------|-----------|
+| `POST` | `/dota` | `text/plain` | Envia uma pergunta e recebe a resposta do chatbot |
+
+**Exemplo:**
+```bash
+curl -X POST http://localhost:8080/dota \
+  -H "Content-Type: text/plain" \
+  -d "Quais são as habilidades do Axe?"
+```
+
+### Documentação da API
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI spec: `http://localhost:8080/api-docs`
+
+## Como funciona o RAG
+
+Na primeira inicialização, a aplicação lê os documentos em `src/main/resources/rag/`, gera embeddings via Ollama (`nomic-embed-text`) e salva o índice vetorial em `rag-cache.json` na raiz do projeto. Nas execuções seguintes, o cache é reutilizado, evitando o custo de reindexação.
+
+Para forçar a reindexação, basta deletar o arquivo `rag-cache.json`.
+
+## Build e testes
+
+```bash
+# Compilar e empacotar
 ./mvnw package
+
+# Rodar testes
+./mvnw test
+
+# Build + testes
+./mvnw verify
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+Os testes usam `@WebMvcTest` com mock do `DotaAssistant`, portanto **não exigem** Ollama rodando.
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+## Configuração
 
-If you want to build an _über-jar_, execute the following command:
+As propriedades estão em `src/main/resources/application.properties`:
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/dota-chatbot-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- REST ([guide](https://quarkus.io/guides/rest)): Build RESTful web services and APIs using Jakarta REST (formerly JAX-RS)
-- SmallRye OpenAPI ([guide](https://quarkus.io/guides/openapi-swaggerui)): Generate OpenAPI schemas and serve Swagger UI for REST API documentation
-- LangChain4j Ollama ([guide](https://docs.quarkiverse.io/quarkus-langchain4j/dev/guide-ollama.html)): Provides the basic integration of Ollama with LangChain4j
-- LangChain4j Easy RAG ([guide](https://docs.quarkiverse.io/quarkus-langchain4j/dev/rag-easy-rag.html)): Provides the Easy RAG functionality with LangChain4j
-
-## Provided Code
-
-### LangChain4j Easy RAG
-
-This code is a very basic sample service to start developing with Quarkus LangChain4j using Easy RAG.
-
-You have to add an extension that provides an embedding model. For that, you can choose from the plethora of extensions like quarkus-langchain4j-openai, quarkus-langchain4j-ollama, or import an in-process embedding model - these have the advantage of not having to send data over the wire.
-
-In `./easy-rag-catalog/` you can find a set of example documents that will be used to create the RAG index which the bot (`src/main/java/org/acme/Bot.java`) will ingest.
-
-On first run, the bot will create the RAG index and store it in `easy-rag-catalog.json` file and reuse it on subsequent runs.
-This can be disabled by setting the `quarkus.langchain4j.easy-rag.reuse-embeddings.enabled` property to `false`.
-
-Add it to a Rest endpoint:
-```java
-    @Inject
-    Bot bot;
-    
-    @POST
-    @Produces(MediaType.TEXT_PLAIN)
-    public String chat(String q) {
-        return bot.chat(q);
-    }
-```
-
-In a more complete example, you would have a web interface and use websockets that would provide more interactive experience, see [ChatBot Easy RAG Sample](https://github.com/quarkiverse/quarkus-langchain4j/tree/main/samples/chatbot-easy-rag) for such an example.
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+| Propriedade | Padrão | Descrição |
+|-------------|--------|-----------|
+| `spring.ai.ollama.base-url` | `http://localhost:11434` | URL do Ollama |
+| `spring.ai.ollama.chat.options.model` | `llama3.2:latest` | Modelo de chat |
+| `spring.ai.ollama.embedding.options.model` | `nomic-embed-text` | Modelo de embedding |
+| `app.rag.cache-path` | `./rag-cache.json` | Caminho do cache vetorial |
