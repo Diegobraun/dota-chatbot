@@ -38,8 +38,8 @@ curl -X POST http://localhost:8080/dota \
 
 ### Documentação da API
 
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI spec: `http://localhost:8080/api-docs`
+- [Swagger UI](http://localhost:8080/swagger-ui.html) — `http://localhost:8080/swagger-ui.html`
+- [OpenAPI spec](http://localhost:8080/api-docs) — `http://localhost:8080/api-docs`
 
 ## Arquitetura
 
