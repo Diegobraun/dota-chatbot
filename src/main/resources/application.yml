@@ -1,0 +1,14 @@
+langchain4j:
+  ollama:
+    chat-model:
+      base-url: http://localhost:11434
+      model-name: llama3.2:latest
+    embedding-model:
+      base-url: http://localhost:11434
+      model-name: nomic-embed-text
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /api-docs
