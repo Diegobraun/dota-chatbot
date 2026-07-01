@@ -11,7 +11,7 @@ import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
@@ -25,17 +25,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
+@EnableConfigurationProperties(RagProperties.class)
 public class RagConfig {
 
     private static final Logger log = LoggerFactory.getLogger(RagConfig.class);
 
-    @Value("${app.rag.cache-path:./rag-cache.json}")
-    private String cachePath;
+    private final RagProperties properties;
+
+    public RagConfig(RagProperties properties) {
+        this.properties = properties;
+    }
 
     @Bean
     public ContentRetriever contentRetriever(EmbeddingModel embeddingModel) throws IOException {
         InMemoryEmbeddingStore<TextSegment> embeddingStore;
-        File cacheFile = new File(cachePath);
+        File cacheFile = new File(properties.cachePath());
 
         if (cacheFile.exists()) {
             log.info("Carregando vector store do cache: {}", cacheFile.getAbsolutePath());
@@ -52,7 +56,7 @@ public class RagConfig {
         return EmbeddingStoreContentRetriever.builder()
                 .embeddingStore(embeddingStore)
                 .embeddingModel(embeddingModel)
-                .maxResults(5)
+                .maxResults(properties.maxResults())
                 .build();
     }
 
@@ -60,7 +64,7 @@ public class RagConfig {
         var resolver = new PathMatchingResourcePatternResolver();
         Resource[] resources = resolver.getResources("classpath:rag/*");
 
-        DocumentSplitter splitter = DocumentSplitters.recursive(512, 0);
+        DocumentSplitter splitter = DocumentSplitters.recursive(properties.chunkSize(), properties.chunkOverlap());
         List<TextSegment> segments = new ArrayList<>();
 
         for (Resource resource : resources) {

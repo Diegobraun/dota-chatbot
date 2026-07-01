@@ -9,7 +9,6 @@ import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,10 +29,10 @@ class RagConfigTest {
 
     @BeforeEach
     void setup() {
-        ragConfig = new RagConfig();
         embeddingModel = mock(EmbeddingModel.class);
         cachePath = tempDir.resolve("test-rag-cache.json");
-        ReflectionTestUtils.setField(ragConfig, "cachePath", cachePath.toString());
+        RagProperties properties = new RagProperties(cachePath.toString(), 5, 512, 0);
+        ragConfig = new RagConfig(properties);
     }
 
     @Test

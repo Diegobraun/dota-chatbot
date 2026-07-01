@@ -12,3 +12,10 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /api-docs
+
+app:
+  rag:
+    cache-path: ./rag-cache.json
+    max-results: 5
+    chunk-size: 512
+    chunk-overlap: 0

@@ -70,7 +70,7 @@ Tests use `@WebMvcTest` + `@MockitoBean(DotaAssistant)` — they mock the AI lay
 
 ## Configuration
 
-All tuneable properties are in `src/main/resources/application.properties`:
+All tuneable properties are in `src/main/resources/application.yml`:
 
 | Property | Default | Purpose |
 |---|---|---|
@@ -79,3 +79,6 @@ All tuneable properties are in `src/main/resources/application.properties`:
 | `langchain4j.ollama.embedding-model.base-url` | `http://localhost:11434` | Ollama endpoint |
 | `langchain4j.ollama.embedding-model.model-name` | `nomic-embed-text` | Embedding model |
 | `app.rag.cache-path` | `./rag-cache.json` | Vector store cache location |
+| `app.rag.max-results` | `5` | Segments retrieved per query |
+| `app.rag.chunk-size` | `512` | Document splitter chunk size |
+| `app.rag.chunk-overlap` | `0` | Document splitter chunk overlap |
