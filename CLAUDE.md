@@ -31,7 +31,7 @@ ollama serve
 ./mvnw test
 
 # Run a single test class
-./mvnw test -Dtest=GreetingResourceTest
+./mvnw test -Dtest=DotaResourceTest
 
 # Clean build
 ./mvnw clean package
